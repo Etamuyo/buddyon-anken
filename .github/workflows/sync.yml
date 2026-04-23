@@ -1,0 +1,63 @@
+name: Sync Wix CMS to data.json
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 21 * * *'
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch Wix CMS data
+        env:
+          WIX_API_KEY: ${{ secrets.WIX_API_KEY }}
+          WIX_SITE_ID: 19c4a8ac-36ed-410f-94f1-978ab08b87b1
+        run: |
+          set -e
+          response=$(curl -sf -X POST \
+            -H "Authorization: $WIX_API_KEY" \
+            -H "wix-site-id: $WIX_SITE_ID" \
+            -H "Content-Type: application/json" \
+            -d '{"dataCollectionId":"AnkenList","query":{"paging":{"limit":100},"sort":[{"fieldName":"_createdDate","order":"DESC"}]}}' \
+            "https://www.wixapis.com/wix-data/v2/items/query")
+
+          if [ -z "$response" ] || echo "$response" | jq -e '.message' >/dev/null 2>&1; then
+            echo "::error::Wix API returned an error or empty response"
+            echo "$response"
+            exit 1
+          fi
+
+          item_count=$(echo "$response" | jq '.dataItems | length')
+          if [ "$item_count" = "0" ] || [ -z "$item_count" ]; then
+            echo "::warning::No items returned from Wix CMS. Skipping update."
+            exit 0
+          fi
+
+          echo "$response" | jq --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '{
+            updated: $ts,
+            items: [.dataItems[].data | {
+              ankenName, kinmuChi, tankaPriceMin, tankaPriceMax,
+              tankaPriceType, tankaDisplay, ankenType, industry,
+              kaishi, kadoJikan, kadoNissu, skillYoken, biko, mentanFlow
+            }]
+          }' > data.json
+
+          echo "Synced $item_count items"
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name  "GitHub Actions Bot"
+          git config user.email "actions@github.com"
+          if git diff --quiet data.json; then
+            echo "No changes detected"
+          else
+            git add data.json
+            git commit -m "Sync: Wix CMS $(date -u +%Y-%m-%dT%H:%MZ)"
+            git push
+          fi
