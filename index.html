@@ -75,6 +75,18 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text
 .modal-submit:disabled{opacity:.5;cursor:not-allowed;}
 .success-msg{text-align:center;padding:20px 0;color:var(--green);}
 .success-msg p{font-size:13px;color:var(--sub);margin-top:8px;}
+
+.expand-btn{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;margin-top:10px;padding:8px;border-radius:8px;background:transparent;border:1px solid var(--border);color:var(--sub);font-size:11px;font-weight:600;cursor:pointer;transition:all .18s;letter-spacing:.05em;}
+.expand-btn:hover{border-color:var(--accent-glow);color:var(--text);}
+.expand-btn .plus{display:inline-block;width:14px;height:14px;line-height:14px;text-align:center;border-radius:50%;background:var(--accent-dim);color:var(--accent);font-size:11px;font-weight:900;transition:transform .25s;}
+.card.expanded .expand-btn .plus{transform:rotate(45deg);}
+.details{display:none;margin-top:12px;padding-top:12px;border-top:1px dashed var(--border);}
+.card.expanded .details{display:block;animation:fadein .25s ease;}
+@keyframes fadein{from{opacity:0;transform:translateY(-4px);}to{opacity:1;transform:translateY(0);}}
+.detail-row{display:flex;gap:10px;margin-bottom:9px;font-size:12px;line-height:1.55;}
+.detail-row:last-child{margin-bottom:0;}
+.detail-label{flex-shrink:0;width:72px;color:var(--muted);font-size:10px;font-weight:700;letter-spacing:.05em;padding-top:1px;}
+.detail-value{flex:1;color:#c8c8e0;}
 </style>
 </head>
 <body>
@@ -169,6 +181,15 @@ function renderCards(){
     <div class="meta-item">${locIcon}<span>${d.kinmuChi||'要相談'}</span></div>
     <div class="meta-item">${calIcon}<span>${d.kaishi||'随時'}</span></div>
   </div>
+  ${(d.skillYoken||d.kadoNissu||d.kadoJikan||d.mentanFlow||d.kinmuChi)?`
+  <button class="expand-btn" onclick="toggleDetails(this)"><span class="plus">+</span><span class="expand-label">詳細を見る</span></button>
+  <div class="details">
+    ${d.kinmuChi?`<div class="detail-row"><div class="detail-label">勤務地</div><div class="detail-value">${d.kinmuChi}</div></div>`:''}
+    ${d.skillYoken?`<div class="detail-row"><div class="detail-label">スキル</div><div class="detail-value">${d.skillYoken}</div></div>`:''}
+    ${d.kadoNissu?`<div class="detail-row"><div class="detail-label">稼働日数</div><div class="detail-value">${d.kadoNissu}</div></div>`:''}
+    ${d.kadoJikan?`<div class="detail-row"><div class="detail-label">稼働時間</div><div class="detail-value">${d.kadoJikan}</div></div>`:''}
+    ${d.mentanFlow?`<div class="detail-row"><div class="detail-label">面談</div><div class="detail-value">${d.mentanFlow}</div></div>`:''}
+  </div>`:''}
   <button class="apply-btn" onclick="openModal('${d.ankenName.replace(/'/g,"\\'")}')">📮 この案件に応募する</button>
 </div>`).join('');
 }
@@ -184,6 +205,12 @@ function renderCards(){
     renderCards();
   });
 });
+
+function toggleDetails(btn){
+  const card=btn.closest('.card');
+  card.classList.toggle('expanded');
+  btn.querySelector('.expand-label').textContent=card.classList.contains('expanded')?'閉じる':'詳細を見る';
+}
 
 // 同一オリジン(anken.buddyon.net)からdata.jsonを取得 → CORSなし
 fetch('/data.json?t=' + Date.now())
